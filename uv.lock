@@ -232,6 +232,15 @@ dev = [
     { name = "ruff" },
     { name = "tqdm" },
 ]
+lint = [
+    { name = "mypy" },
+    { name = "ruff" },
+]
+test = [
+    { name = "pytest" },
+    { name = "rich" },
+    { name = "tqdm" },
+]
 
 [package.metadata]
 requires-dist = [{ name = "rich", marker = "extra == 'ground'", specifier = ">=14.3.3" }]
@@ -243,6 +252,15 @@ dev = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "rich", specifier = ">=14.3.3" },
     { name = "ruff", specifier = ">=0.13.0" },
+    { name = "tqdm", specifier = ">=4.67.3" },
+]
+lint = [
+    { name = "mypy", specifier = ">=1.18.2" },
+    { name = "ruff", specifier = ">=0.13.0" },
+]
+test = [
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "rich", specifier = ">=14.3.3" },
     { name = "tqdm", specifier = ">=4.67.3" },
 ]
 

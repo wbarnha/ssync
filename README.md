@@ -17,6 +17,14 @@ This repository includes:
 - space runtime has no third-party dependencies
 - ground installation requires `rich` for the monitor TUI
 - tooling is `uv`-friendly
+- pure Python, no C extensions: CI runs the test suite on both the standard
+  and free-threaded (`python3.13t`/`python3.14t`, PEP 703 no-GIL) CPython
+  builds. Try it locally with:
+
+  ```bash
+  uv python install 3.13t
+  uv run --python 3.13t pytest -q
+  ```
 
 ## Install for space or ground
 
