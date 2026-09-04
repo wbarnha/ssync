@@ -34,9 +34,13 @@ test = [
     "rich>=14.3.3",
     "tqdm>=4.67.3",
 ]
+bench = [
+    "pytest-benchmark>=5.0.0",
+]
 dev = [
     {include-group = "lint"},
     {include-group = "test"},
+    {include-group = "bench"},
 ]
 
 [build-system]
@@ -65,7 +69,7 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.mypy]
 python_version = "3.13"
-files = ["src", "tests", "scripts"]
+files = ["src", "tests", "scripts", "benchmarks"]
 warn_return_any = true
 warn_unused_configs = true
 no_implicit_optional = true

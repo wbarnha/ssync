@@ -286,6 +286,23 @@ uv run python scripts/benchmark_loopback_chunk_size.py \
   --chunk-sizes 1200,1400,2048,4096,8192,12000,16384
 ```
 
+Run the pytest-benchmark suite (frame-codec microbenchmarks and end-to-end
+concurrent transfers). These live in `benchmarks/` and are not collected by a
+normal `pytest` run:
+
+```bash
+uv run --group bench pytest benchmarks/ --benchmark-columns=median,stddev,ops
+```
+
+Compare two interpreters (for example a standard build against a free-threaded
+one) by saving each run and diffing them:
+
+```bash
+uv run --group bench --python 3.14 pytest benchmarks/ --benchmark-save=gil
+uv run --group bench --python 3.14t pytest benchmarks/ --benchmark-save=freethreaded
+uv run --group bench pytest-benchmark compare gil freethreaded
+```
+
 Debug with tcpdump:
 
 ```bash
