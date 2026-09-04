@@ -64,17 +64,14 @@ jobs:
       # compatibility) and a "pythonX.Yt" binary (the real free-threaded
       # entry point, GIL disabled by default) - bare "python" resolves to
       # the former, so target the latter by its exact name (the matrix
-      # value already is e.g. "3.13t") instead of relying on `-X gil=0`/
-      # PYTHON_GIL, which fatally error when they end up applied to a
-      # binary that doesn't support disabling the GIL at all.
-      # `--no-sync` avoids `uv run`'s own implicit re-sync of the default
-      # (dev) dependency group - without it, `uv run` would pull in `mypy`
-      # (and its `librt` dependency) even though this job only installed
-      # the `test` group, hitting a similar build-isolation failure.
+      # value already is e.g. "3.13t"). Invoke the venv's own copy by path
+      # (matching the install-profiles job's .profile-venv/bin/... pattern)
+      # rather than through `uv run`: `uv run --no-sync "pythonX.Yt" ...`
+      # resolves the name against the system toolcache instead of the venv,
+      # missing the packages "Sync dependencies" just installed.
       - name: Verify GIL is disabled
         run: |
-          which python${{ matrix.python-version }}
-          uv run --no-sync "python${{ matrix.python-version }}" -c "
+          .venv/bin/python${{ matrix.python-version }} -c "
           import sys
           print('executable:', sys.executable)
           print('version:', sys.version)
@@ -86,7 +83,7 @@ jobs:
         run: sudo sysctl -w net.core.rmem_max=134217728 net.core.rmem_default=134217728
 
       - name: Pytest
-        run: uv run --no-sync "python${{ matrix.python-version }}" -m pytest -q
+        run: .venv/bin/python${{ matrix.python-version }} -m pytest -q
 
   install-profiles:
     runs-on: ubuntu-latest
