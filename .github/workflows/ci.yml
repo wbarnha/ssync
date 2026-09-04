@@ -36,12 +36,6 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.13t", "3.14t"]
-    env:
-      # actions/setup-python's free-threaded builds default to GIL enabled
-      # (unlike python-build-standalone builds, e.g. via `uv python install`,
-      # which default to disabled) - force it off so this job actually tests
-      # free-threading.
-      PYTHON_GIL: "0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,11 +51,18 @@ jobs:
       - name: Sync dependencies
         run: uv sync --only-group test
 
+      # actions/setup-python's free-threaded builds default to GIL enabled
+      # (unlike python-build-standalone builds, e.g. via `uv python install`,
+      # which default to disabled) - force it off with the `-X gil=0`
+      # interpreter flag so this job tests free-threading. A flag rather
+      # than a PYTHON_GIL env var: an env var also reaches `uv sync`'s build
+      # isolation for the editable `ssync` install, which fatally errors
+      # because that subprocess isn't a free-threaded build itself.
       - name: Verify GIL is disabled
-        run: uv run python -c "import sys; assert not sys._is_gil_enabled()"
+        run: uv run python -X gil=0 -c "import sys; assert not sys._is_gil_enabled()"
 
       - name: Pytest
-        run: uv run pytest -q
+        run: uv run python -X gil=0 -m pytest -q
 
   install-profiles:
     runs-on: ubuntu-latest
