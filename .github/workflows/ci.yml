@@ -58,11 +58,15 @@ jobs:
       # than a PYTHON_GIL env var: an env var also reaches `uv sync`'s build
       # isolation for the editable `ssync` install, which fatally errors
       # because that subprocess isn't a free-threaded build itself.
+      # `--no-sync` avoids `uv run`'s own implicit re-sync of the default
+      # (dev) dependency group - without it, `uv run` would pull in `mypy`
+      # (and its `librt` dependency) even though this job only installed
+      # the `test` group, hitting the same build-isolation failure.
       - name: Verify GIL is disabled
-        run: uv run python -X gil=0 -c "import sys; assert not sys._is_gil_enabled()"
+        run: uv run --no-sync python -X gil=0 -c "import sys; assert not sys._is_gil_enabled()"
 
       - name: Pytest
-        run: uv run python -X gil=0 -m pytest -q
+        run: uv run --no-sync python -X gil=0 -m pytest -q
 
   install-profiles:
     runs-on: ubuntu-latest
