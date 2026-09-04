@@ -1616,6 +1616,9 @@ class SpaceSyncReceiver:
             self._stop_event.wait(timeout=interval)
             if self._stop_event.is_set():
                 break
+            tx = self._tx_sock
+            if tx is None:
+                continue
             now = time.monotonic()
             with self._lock:
                 active_transfers = list(self._transfers.values())
@@ -1630,7 +1633,7 @@ class SpaceSyncReceiver:
                         < transfer.manifest.total_chunks
                     ):
                         continue
-                    self._maybe_send_periodic_repair_request(None, transfer)
+                    self._maybe_send_periodic_repair_request(tx, transfer)
 
     def _run_send_worker(self) -> None:
         while not self._stop_event.is_set():

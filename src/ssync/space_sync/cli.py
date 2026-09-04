@@ -13,7 +13,7 @@ import signal
 import sys
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -32,7 +32,7 @@ class _OverrideAppendAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: str | list[str] | None,
+        values: str | Sequence[Any] | None,
         option_string: str | None = None,
     ) -> None:
         marker = f"_{self.dest}_explicit"
@@ -40,10 +40,10 @@ class _OverrideAppendAction(argparse.Action):
             setattr(namespace, self.dest, [])
             setattr(namespace, marker, True)
         items = getattr(namespace, self.dest)
-        if isinstance(values, list):
-            items.extend(values)
-        else:
+        if values is None or isinstance(values, str):
             items.append(values)
+        else:
+            items.extend(values)
 
 
 def _make_default_getter(

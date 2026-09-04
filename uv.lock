@@ -231,10 +231,12 @@ dev = [
     { name = "rich" },
     { name = "ruff" },
     { name = "tqdm" },
+    { name = "types-tqdm" },
 ]
 lint = [
     { name = "mypy" },
     { name = "ruff" },
+    { name = "types-tqdm" },
 ]
 test = [
     { name = "pytest" },
@@ -253,10 +255,12 @@ dev = [
     { name = "rich", specifier = ">=14.3.3" },
     { name = "ruff", specifier = ">=0.13.0" },
     { name = "tqdm", specifier = ">=4.67.3" },
+    { name = "types-tqdm" },
 ]
 lint = [
     { name = "mypy", specifier = ">=1.18.2" },
     { name = "ruff", specifier = ">=0.13.0" },
+    { name = "types-tqdm" },
 ]
 test = [
     { name = "pytest", specifier = ">=8.0.0" },
@@ -274,6 +278,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/09/a9/6ba95a270c6f1fbcd8dac228323f2777d886cb206987444e4bce66338dd4/tqdm-4.67.3.tar.gz", hash = "sha256:7d825f03f89244ef73f1d4ce193cb1774a8179fd96f31d7e1dcde62092b960bb", size = 169598, upload-time = "2026-02-03T17:35:53.048Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/16/e1/3079a9ff9b8e11b846c6ac5c8b5bfb7ff225eee721825310c91b3b50304f/tqdm-4.67.3-py3-none-any.whl", hash = "sha256:ee1e4c0e59148062281c49d80b25b67771a127c85fc9676d3be5f243206826bf", size = 78374, upload-time = "2026-02-03T17:35:50.982Z" },
+]
+
+[[package]]
+name = "types-tqdm"
+version = "4.70.0.20260827"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fa/66/f4a8d5483513ed883e8f01c607b5d47815ca0eb796d376349fdfe85a125c/types_tqdm-4.70.0.20260827.tar.gz", hash = "sha256:d3efd69243ac9093c552f1c0d081b77286d61ace96b6899a142542555bdad2dc", size = 19251, upload-time = "2026-08-27T12:06:55.911Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7a/f0/b0e2a33c0367e79806054f556159f0b43e6a98d7e728aea1b07028a56ee4/types_tqdm-4.70.0.20260827-py3-none-any.whl", hash = "sha256:d6e02da8ec2bc11124e02d4bc84bd8b67a444f4c5decf544846897c8272c7023", size = 25163, upload-time = "2026-08-27T12:06:54.898Z" },
 ]
 
 [[package]]
