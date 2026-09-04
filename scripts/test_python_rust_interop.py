@@ -11,6 +11,7 @@ Examples:
   uv run python scripts/test_python_rust_interop.py --with-loss
 """
 
+# ruff: noqa: E402
 from __future__ import annotations
 
 import argparse
@@ -130,7 +131,9 @@ class DropProxy:
                 self.sock.sendto(payload, self.receiver_addr)
 
 
-def start_receiver(cmd: list[str], cwd: Path, log_path: Path) -> tuple[subprocess.Popen[bytes], IO[bytes]]:
+def start_receiver(
+    cmd: list[str], cwd: Path, log_path: Path
+) -> tuple[subprocess.Popen[bytes], IO[bytes]]:
     log = log_path.open("wb")
     proc = subprocess.Popen(
         cmd,
@@ -297,8 +300,17 @@ def print_result(result: CaseResult) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Python↔Rust ssync interoperability tests")
-    parser.add_argument("--with-loss", action="store_true", help="also run feedback tests through a lossy UDP proxy")
-    parser.add_argument("--drop-every-n-data", type=int, default=5, help="drop cadence for --with-loss (default: 5)")
+    parser.add_argument(
+        "--with-loss",
+        action="store_true",
+        help="also run feedback tests through a lossy UDP proxy",
+    )
+    parser.add_argument(
+        "--drop-every-n-data",
+        type=int,
+        default=5,
+        help="drop cadence for --with-loss (default: 5)",
+    )
     args = parser.parse_args()
 
     build_rust()
@@ -319,7 +331,8 @@ def main() -> int:
                 rust_receive_cmd,
                 RS_REPO,
                 False,
-                "Python open-loop send uses --inter-packet-delay-s 0.0001 for stable localhost delivery to Rust.",
+                "Python open-loop send uses --inter-packet-delay-s 0.0001 for stable "
+                "localhost delivery to Rust.",
             ),
             (
                 "rs_to_py_open",
@@ -414,7 +427,11 @@ def main() -> int:
                             sender_rc=sender.returncode,
                             sender_stdout=sender.stdout.strip(),
                             sender_stderr=sender.stderr.strip(),
-                            receiver_log=log_path.read_text(errors="replace").strip() if log_path.exists() else "",
+                            receiver_log=(
+                                log_path.read_text(errors="replace").strip()
+                                if log_path.exists()
+                                else ""
+                            ),
                             notes=(
                                 f"UDP proxy dropped every {args.drop_every_n_data}th DATA packet; "
                                 f"proxy dropped {proxy.dropped_data} data packets."

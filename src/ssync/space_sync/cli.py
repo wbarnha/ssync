@@ -232,7 +232,10 @@ def _build_parser(config_defaults: dict[str, Any] | None = None) -> argparse.Arg
         "--forward-stream-quiet-s",
         type=float,
         default=g("forward_stream_quiet_s", 0.5),
-        help="Seconds of DATA silence before allowing state advertisements during forward streaming",
+        help=(
+            "Seconds of DATA silence before allowing state advertisements "
+            "during forward streaming"
+        ),
     )
     _add_cli_argument(
         recv,
@@ -652,7 +655,10 @@ def _add_server_args(parser: argparse.ArgumentParser, g: Callable[[str, Any], An
         "--forward-stream-quiet-s",
         type=float,
         default=g("forward_stream_quiet_s", 0.5),
-        help="Seconds of DATA silence before allowing state advertisements during forward streaming",
+        help=(
+            "Seconds of DATA silence before allowing state advertisements "
+            "during forward streaming"
+        ),
     )
     _add_cli_argument(
         parser,

@@ -1354,7 +1354,9 @@ class SpaceSyncReceiver:
         if not consume_clear_request(self.config.output_dir):
             return
         with self._lock:
-            active_ids = [transfer.manifest.transfer_id.hex() for transfer in self._transfers.values()]
+            active_ids = [
+                transfer.manifest.transfer_id.hex() for transfer in self._transfers.values()
+            ]
             for transfer in self._transfers.values():
                 self._close_transfer_mmap(transfer)
             self._transfers.clear()

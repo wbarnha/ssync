@@ -36,6 +36,12 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.13t", "3.14t"]
+    env:
+      # actions/setup-python's free-threaded builds default to GIL enabled
+      # (unlike python-build-standalone builds, e.g. via `uv python install`,
+      # which default to disabled) - force it off so this job actually tests
+      # free-threading.
+      PYTHON_GIL: "0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
