@@ -1354,7 +1354,9 @@ class SpaceSyncReceiver:
         if not consume_clear_request(self.config.output_dir):
             return
         with self._lock:
-            active_ids = [transfer.manifest.transfer_id.hex() for transfer in self._transfers.values()]
+            active_ids = [
+                transfer.manifest.transfer_id.hex() for transfer in self._transfers.values()
+            ]
             for transfer in self._transfers.values():
                 self._close_transfer_mmap(transfer)
             self._transfers.clear()
@@ -1616,6 +1618,9 @@ class SpaceSyncReceiver:
             self._stop_event.wait(timeout=interval)
             if self._stop_event.is_set():
                 break
+            tx = self._tx_sock
+            if tx is None:
+                continue
             now = time.monotonic()
             with self._lock:
                 active_transfers = list(self._transfers.values())
@@ -1630,7 +1635,7 @@ class SpaceSyncReceiver:
                         < transfer.manifest.total_chunks
                     ):
                         continue
-                    self._maybe_send_periodic_repair_request(None, transfer)
+                    self._maybe_send_periodic_repair_request(tx, transfer)
 
     def _run_send_worker(self) -> None:
         while not self._stop_event.is_set():

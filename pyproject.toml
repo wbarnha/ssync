@@ -7,6 +7,10 @@ license = { file = "LICENSE" }
 requires-python = ">=3.13"
 classifiers = [
     "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
 ]
 dependencies = []
 
@@ -21,12 +25,23 @@ ssync = "ssync.space_sync.cli:main"
 ssyncd = "ssync.space_sync.cli:ssyncd_main"
 
 [dependency-groups]
-dev = [
+lint = [
     "mypy>=1.18.2",
+    "ruff>=0.13.0",
+    "types-tqdm",
+]
+test = [
     "pytest>=8.0.0",
     "rich>=14.3.3",
-    "ruff>=0.13.0",
     "tqdm>=4.67.3",
+]
+bench = [
+    "pytest-benchmark>=5.0.0",
+]
+dev = [
+    {include-group = "lint"},
+    {include-group = "test"},
+    {include-group = "bench"},
 ]
 
 [build-system]
@@ -38,6 +53,9 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+ssync = ["py.typed"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -52,7 +70,7 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.mypy]
 python_version = "3.13"
-files = ["src", "tests"]
+files = ["src", "tests", "scripts", "benchmarks"]
 warn_return_any = true
 warn_unused_configs = true
 no_implicit_optional = true

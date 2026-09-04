@@ -13,7 +13,7 @@ import signal
 import sys
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -32,7 +32,7 @@ class _OverrideAppendAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: str | list[str] | None,
+        values: str | Sequence[Any] | None,
         option_string: str | None = None,
     ) -> None:
         marker = f"_{self.dest}_explicit"
@@ -40,10 +40,10 @@ class _OverrideAppendAction(argparse.Action):
             setattr(namespace, self.dest, [])
             setattr(namespace, marker, True)
         items = getattr(namespace, self.dest)
-        if isinstance(values, list):
-            items.extend(values)
-        else:
+        if values is None or isinstance(values, str):
             items.append(values)
+        else:
+            items.extend(values)
 
 
 def _make_default_getter(
@@ -232,7 +232,10 @@ def _build_parser(config_defaults: dict[str, Any] | None = None) -> argparse.Arg
         "--forward-stream-quiet-s",
         type=float,
         default=g("forward_stream_quiet_s", 0.5),
-        help="Seconds of DATA silence before allowing state advertisements during forward streaming",
+        help=(
+            "Seconds of DATA silence before allowing state advertisements "
+            "during forward streaming"
+        ),
     )
     _add_cli_argument(
         recv,
@@ -652,7 +655,10 @@ def _add_server_args(parser: argparse.ArgumentParser, g: Callable[[str, Any], An
         "--forward-stream-quiet-s",
         type=float,
         default=g("forward_stream_quiet_s", 0.5),
-        help="Seconds of DATA silence before allowing state advertisements during forward streaming",
+        help=(
+            "Seconds of DATA silence before allowing state advertisements "
+            "during forward streaming"
+        ),
     )
     _add_cli_argument(
         parser,

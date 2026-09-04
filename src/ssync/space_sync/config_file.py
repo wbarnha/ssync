@@ -220,12 +220,14 @@ def _normalize_append_list(value: object, *, key: str, path: Path) -> list[str]:
         for i, item in enumerate(value):
             if not isinstance(item, str):
                 raise ValueError(
-                    f"Invalid type for {key!r} entry {i} in {path}: expected string, got {type(item).__name__}"
+                    f"Invalid type for {key!r} entry {i} in {path}: "
+                    f"expected string, got {type(item).__name__}"
                 )
             out.append(item)
         return out
     raise ValueError(
-        f"Invalid type for {key!r} in {path}: expected string or array of strings, got {type(value).__name__}"
+        f"Invalid type for {key!r} in {path}: "
+        f"expected string or array of strings, got {type(value).__name__}"
     )
 
 
@@ -252,7 +254,8 @@ def _coerce_value(key: str, value: object, *, path: Path) -> object:
         upper = value.upper()
         if upper not in _LOG_LEVEL_CHOICES:
             raise ValueError(
-                f"Invalid log_level {value!r} in {path}: must be one of {sorted(_LOG_LEVEL_CHOICES)}"
+                f"Invalid log_level {value!r} in {path}: "
+                f"must be one of {sorted(_LOG_LEVEL_CHOICES)}"
             )
         return upper
     if key == "verbose":
@@ -263,7 +266,8 @@ def _coerce_value(key: str, value: object, *, path: Path) -> object:
                 raise ValueError(f"verbose must be >= 0 in {path}")
             return value
         raise ValueError(
-            f"Invalid type for verbose in {path}: expected integer or boolean, got {type(value).__name__}"
+            f"Invalid type for verbose in {path}: "
+            f"expected integer or boolean, got {type(value).__name__}"
         )
     if key == "json_output":
         if isinstance(value, bool):

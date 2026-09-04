@@ -557,6 +557,7 @@ def main() -> int:
     file_size_bytes = args.file_size_mib * 1024 * 1024
 
     temp_root_override = args.temp_root or _default_temp_root()
+    chosen_root: Path | None
     if args.temp_root:
         chosen_root = Path(args.temp_root).expanduser().resolve()
         chosen_root.mkdir(parents=True, exist_ok=True)
