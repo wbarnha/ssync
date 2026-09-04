@@ -59,26 +59,34 @@ jobs:
       - name: Sync dependencies
         run: uv sync --only-group test
 
-      # actions/setup-python's free-threaded builds default to GIL enabled
-      # (unlike python-build-standalone builds, e.g. via `uv python install`,
-      # which default to disabled) - force it off with the `-X gil=0`
-      # interpreter flag so this job tests free-threading. A flag rather
-      # than a PYTHON_GIL env var: an env var also reaches `uv sync`'s build
-      # isolation for the editable `ssync` install, which fatally errors
-      # because that subprocess isn't a free-threaded build itself.
+      # actions/setup-python's free-threaded toolcache directory provides
+      # both a "pythonX.Y" binary (GIL enabled by default, for backward
+      # compatibility) and a "pythonX.Yt" binary (the real free-threaded
+      # entry point, GIL disabled by default) - bare "python" resolves to
+      # the former, so target the latter by its exact name (the matrix
+      # value already is e.g. "3.13t") instead of relying on `-X gil=0`/
+      # PYTHON_GIL, which fatally error when they end up applied to a
+      # binary that doesn't support disabling the GIL at all.
       # `--no-sync` avoids `uv run`'s own implicit re-sync of the default
       # (dev) dependency group - without it, `uv run` would pull in `mypy`
       # (and its `librt` dependency) even though this job only installed
-      # the `test` group, hitting the same build-isolation failure.
+      # the `test` group, hitting a similar build-isolation failure.
       - name: Verify GIL is disabled
-        run: uv run --no-sync python -X gil=0 -c "import sys; assert not sys._is_gil_enabled()"
+        run: |
+          which python${{ matrix.python-version }}
+          uv run --no-sync "python${{ matrix.python-version }}" -c "
+          import sys
+          print('executable:', sys.executable)
+          print('version:', sys.version)
+          assert not sys._is_gil_enabled()
+          "
 
       # See the "test" job for why this is needed.
       - name: Raise UDP receive buffer limits
         run: sudo sysctl -w net.core.rmem_max=134217728 net.core.rmem_default=134217728
 
       - name: Pytest
-        run: uv run --no-sync python -X gil=0 -m pytest -q
+        run: uv run --no-sync "python${{ matrix.python-version }}" -m pytest -q
 
   install-profiles:
     runs-on: ubuntu-latest
