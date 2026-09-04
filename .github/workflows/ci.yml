@@ -44,6 +44,15 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.13t", "3.14t"]
+    env:
+      # Without this, `uv` prefers the project's .python-version pin ("3.13")
+      # over whatever actions/setup-python put on PATH for this job. That's
+      # usually harmless, but for the 3.14t entry it silently built the venv
+      # against some other, unrelated 3.13.x interpreter instead of the
+      # 3.14t one this job actually set up - explains every downstream
+      # oddity here (wrong Python version entirely, not just wrong GIL
+      # default). Pin explicitly so `uv` always matches the matrix entry.
+      UV_PYTHON: ${{ matrix.python-version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
