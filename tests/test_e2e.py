@@ -123,6 +123,10 @@ def test_open_loop_tail_redundancy_recovers_dropped_last_chunk(tmp_path: Path) -
             config=SenderConfig(
                 chunk_size=256,
                 enable_feedback=False,
+                # See test_receiver_hides_fully_received_no_feedback_transfer_
+                # from_active_journal for why this is needed alongside
+                # enable_feedback=False.
+                auto_feedback_discovery=False,
                 drop_every_nth_data=4,
                 tail_redundancy_chunks=4,
             ),
