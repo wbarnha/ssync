@@ -32,9 +32,16 @@ jobs:
       # the receiver requests (ReceiverConfig.socket_rcvbuf_bytes, 8MiB
       # default), so the kernel silently caps it and open-loop (no-feedback)
       # e2e tests that burst data with no rate limit can overrun the actual
-      # buffer and lose datagrams before the receiver drains it.
-      - name: Raise UDP receive buffer limits
-        run: sudo sysctl -w net.core.rmem_max=134217728 net.core.rmem_default=134217728
+      # buffer and lose datagrams before the receiver drains it. Only
+      # rmem_max needs raising - rmem_default (the size unconfigured sockets
+      # get) is left alone since the receiver always calls setsockopt
+      # explicitly. The kernel doubles rmem_max internally for accounting,
+      # so 8MiB here yields an effective ~16MiB ceiling: enough for the
+      # 8MiB request with headroom, without inflating every other socket
+      # on the runner the way the original 128MiB rmem_max/rmem_default
+      # pair did.
+      - name: Raise UDP receive buffer limit
+        run: sudo sysctl -w net.core.rmem_max=8388608
 
       - name: Pytest
         run: uv run pytest -q
@@ -114,8 +121,8 @@ jobs:
           "
 
       # See the "test" job for why this is needed.
-      - name: Raise UDP receive buffer limits
-        run: sudo sysctl -w net.core.rmem_max=134217728 net.core.rmem_default=134217728
+      - name: Raise UDP receive buffer limit
+        run: sudo sysctl -w net.core.rmem_max=8388608
 
       - name: Pytest
         continue-on-error: ${{ matrix.experimental }}
