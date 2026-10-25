@@ -24,6 +24,7 @@ ssyncd = "ssync.space_sync.cli:ssyncd_main"
 dev = [
     "mypy>=1.18.2",
     "pytest>=8.0.0",
+    "pytest-benchmark>=5.0.0",
     "rich>=14.3.3",
     "ruff>=0.13.0",
     "tqdm>=4.67.3",
