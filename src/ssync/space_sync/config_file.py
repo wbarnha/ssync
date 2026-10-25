@@ -45,6 +45,9 @@ _RECEIVE_KEYS: Final[frozenset[str]] = frozenset(
         "pre_metadata_max_pending_bytes_per_transfer",
         "pre_metadata_max_pending_transfers",
         "pre_metadata_ttl_s",
+        "max_file_size_bytes",
+        "max_active_transfers",
+        "max_active_allocation_bytes",
     }
 )
 
@@ -67,13 +70,10 @@ _SEND_KEYS: Final[frozenset[str]] = frozenset(
         "repair_duplicate_suppression_s",
         "repair_queue_max_pending_requests",
         "repair_worker_max_chunks_per_burst",
-        "initial_pass_repair_max_chunks_per_burst",
         "repair_worker_poll_interval_s",
         "beacon_interval_s",
         "periodic_metadata_interval_s",
         "periodic_metadata_every_n_chunks",
-        "revisit_incomplete_passes",
-        "revisit_max_rounds_per_pass",
         "primary_feedback_max_rounds",
         "primary_feedback_max_seconds",
         "json_output",
@@ -116,6 +116,9 @@ _SERVER_KEYS: Final[frozenset[str]] = frozenset(
         "pre_metadata_max_pending_bytes_per_transfer",
         "pre_metadata_max_pending_transfers",
         "pre_metadata_ttl_s",
+        "max_file_size_bytes",
+        "max_active_transfers",
+        "max_active_allocation_bytes",
     }
 )
 
@@ -127,7 +130,6 @@ _SYNC_KEYS: Final[frozenset[str]] = frozenset(
         "verbose",
         "include",
         "exclude",
-        "delete",
         "skip_unchanged",
         "checksum",
         "dest_port",
@@ -146,7 +148,6 @@ _SYNC_KEYS: Final[frozenset[str]] = frozenset(
         "repair_duplicate_suppression_s",
         "repair_queue_max_pending_requests",
         "repair_worker_max_chunks_per_burst",
-        "initial_pass_repair_max_chunks_per_burst",
         "repair_worker_poll_interval_s",
         "beacon_interval_s",
         "periodic_metadata_interval_s",

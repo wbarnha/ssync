@@ -27,7 +27,7 @@ from .frames import (
     encode_status,
 )
 from .manifest import TransferManifest
-from .output_dir import clear_output_dir, consume_clear_request
+from .output_dir import clear_output_dir, consume_clear_request, safe_output_path
 from .ranges import ChunkTracker, limit_ranges_to_chunk_budget, summarize_ranges
 from .types import (
     DEFAULT_SOCKET_TIMEOUT,
@@ -98,6 +98,8 @@ class SpaceSyncReceiver:
         self._lock = threading.RLock()
         self._transfers: dict[bytes, _TransferStateData] = {}
         self._transfer_ids_by_signature: dict[tuple[int, int, bytes, str], bytes] = {}
+        self._transfer_ids_by_final_path: dict[Path, bytes] = {}
+        self._active_allocation_bytes = 0
         self._completed: list[ReceivedTransferInfo] = []
         self._thread: threading.Thread | None = None
         self._maintenance_thread: threading.Thread | None = None
@@ -320,6 +322,8 @@ class SpaceSyncReceiver:
         final_path = self._safe_destination_path(manifest.file_name)
         if final_path is None:
             return
+        if not self._admit_manifest(manifest):
+            return
         final_path.parent.mkdir(parents=True, exist_ok=True)
         if self._is_matching_completed_file(final_path, manifest):
             if self.config.enable_feedback:
@@ -369,6 +373,7 @@ class SpaceSyncReceiver:
                     self._transfer_ids_by_signature[
                         self._manifest_signature(transfer.manifest)
                     ] = manifest.transfer_id
+                    self._transfer_ids_by_final_path[transfer.final_path] = manifest.transfer_id
                     self._mark_journal_dirty_locked()
                     LOGGER.debug(
                         (
@@ -386,6 +391,17 @@ class SpaceSyncReceiver:
                 self._maybe_advertise_receiver_state(sock, transfer)
                 self._publish_transfer_update_locked(transfer, force=True)
                 return
+            existing_final_owner = self._transfer_ids_by_final_path.get(final_path)
+            if existing_final_owner is not None and existing_final_owner != manifest.transfer_id:
+                LOGGER.warning(
+                    "transfer_id=%s rejected_conflicting_final_path=%s owner=%s",
+                    manifest.transfer_id.hex(),
+                    final_path,
+                    existing_final_owner.hex(),
+                )
+                return
+            if not self._admit_new_transfer_locked(manifest):
+                return
             if not part_path.exists():
                 with part_path.open("wb") as stream:
                     stream.truncate(manifest.file_size)
@@ -402,6 +418,8 @@ class SpaceSyncReceiver:
             self._transfer_ids_by_signature[self._manifest_signature(manifest)] = (
                 manifest.transfer_id
             )
+            self._transfer_ids_by_final_path[final_path] = manifest.transfer_id
+            self._active_allocation_bytes += manifest.file_size
             self._ensure_mapped_file_locked(self._transfers[manifest.transfer_id])
             buffered_chunks = self._pop_pre_metadata_buffer_locked(manifest.transfer_id)
             if manifest.total_chunks == 0:
@@ -561,16 +579,6 @@ class SpaceSyncReceiver:
                     and cached_sha == manifest.sha256
                 ):
                     return True
-            # Size matches but no cache hit. Prefer size+mtime as a fast
-            # proxy to avoid blocking the main receive thread with a full
-            # SHA-256 read. Fall back to full hash only when mtime is
-            # unavailable (e.g. tests, legacy senders).
-            source_mtime_raw = manifest.metadata.get(int(MetadataType.SOURCE_MTIME_NS))
-            if source_mtime_raw is not None and len(source_mtime_raw) == 8:
-                source_mtime_ns = int.from_bytes(source_mtime_raw, "big")
-                if stat_result.st_mtime_ns == source_mtime_ns:
-                    return True
-                return False
             digest = hashlib.sha256()
             with final_path.open("rb") as stream:
                 for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -588,15 +596,41 @@ class SpaceSyncReceiver:
             return False
 
     def _safe_destination_path(self, file_name: str) -> Path | None:
-        relative_path = Path(file_name)
-        if relative_path.is_absolute():
-            return None
-        filtered_parts = [part for part in relative_path.parts if part not in ("", ".")]
-        if not filtered_parts:
-            return None
-        if any(part == ".." for part in filtered_parts):
-            return None
-        return self.config.output_dir / Path(*filtered_parts)
+        return safe_output_path(self.config.output_dir, file_name)
+
+    def _admit_manifest(self, manifest: TransferManifest) -> bool:
+        max_file_size = self.config.max_file_size_bytes
+        if max_file_size > 0 and manifest.file_size > max_file_size:
+            LOGGER.warning(
+                "transfer_id=%s rejected_oversize_file size=%d max=%d",
+                manifest.transfer_id.hex(),
+                manifest.file_size,
+                max_file_size,
+            )
+            return False
+        return True
+
+    def _admit_new_transfer_locked(self, manifest: TransferManifest) -> bool:
+        max_active = self.config.max_active_transfers
+        if max_active > 0 and len(self._transfers) >= max_active:
+            LOGGER.warning(
+                "transfer_id=%s rejected_active_transfer_limit active=%d max=%d",
+                manifest.transfer_id.hex(),
+                len(self._transfers),
+                max_active,
+            )
+            return False
+        max_allocation = self.config.max_active_allocation_bytes
+        projected = self._active_allocation_bytes + manifest.file_size
+        if max_allocation > 0 and projected > max_allocation:
+            LOGGER.warning(
+                "transfer_id=%s rejected_active_allocation projected=%d max=%d",
+                manifest.transfer_id.hex(),
+                projected,
+                max_allocation,
+            )
+            return False
+        return True
 
     @staticmethod
     def _reply_addr_for(
@@ -676,7 +710,7 @@ class SpaceSyncReceiver:
 
     def _send_repair_request(
         self,
-        sock: socket.socket,
+        sock: socket.socket | None,
         transfer: _TransferStateData,
         missing_ranges: list[tuple[int, int]],
         *,
@@ -779,11 +813,17 @@ class SpaceSyncReceiver:
                 transfer.manifest.transfer_id.hex(),
             )
             return True
+        if (
+            transfer.last_periodic_repair_request_s > 0
+            and now - transfer.last_periodic_repair_request_s
+            < self.config.repair_request_cooldown_s
+        ):
+            return False
         return True
 
     def _maybe_send_periodic_repair_request(
         self,
-        sock: socket.socket,
+        sock: socket.socket | None,
         transfer: _TransferStateData,
     ) -> None:
         if not self.config.enable_feedback:
@@ -1047,34 +1087,45 @@ class SpaceSyncReceiver:
         if not missing_ranges:
             actual_hash = self._stream_file_sha256(part_path)
             if actual_hash == expected_sha256:
-                state = TransferState.COMPLETE
-                if keep_part_files:
-                    temp_final_path = (
-                        final_path.parent
-                        / (
-                            f".{final_path.name}."
-                            f"{transfer_id_hex}.tmp"
-                        )
+                with self._lock:
+                    current_owner = self._transfer_ids_by_final_path.get(final_path)
+                if current_owner != transfer_id:
+                    LOGGER.warning(
+                        "transfer_id=%s final_path_owner_changed path=%s owner=%s",
+                        transfer_id_hex,
+                        final_path,
+                        current_owner.hex() if current_owner is not None else "none",
                     )
-                    try:
-                        os.link(part_path, temp_final_path)
-                    except OSError:
-                        shutil.copyfile(part_path, temp_final_path)
-                    temp_final_path.replace(final_path)
+                    state = TransferState.INCOMPLETE
                 else:
-                    part_path.replace(final_path)
-                if source_mtime is not None and len(source_mtime) == 8:
-                    mtime_ns = int.from_bytes(source_mtime, "big")
-                    os.utime(final_path, ns=(mtime_ns, mtime_ns))
-                try:
-                    updated_stat = final_path.stat()
-                    cache_entry = (
-                        updated_stat.st_size,
-                        updated_stat.st_mtime_ns,
-                        expected_sha256,
-                    )
-                except OSError:
-                    cache_entry = None
+                    state = TransferState.COMPLETE
+                    if keep_part_files:
+                        temp_final_path = (
+                            final_path.parent
+                            / (
+                                f".{final_path.name}."
+                                f"{transfer_id_hex}.tmp"
+                            )
+                        )
+                        try:
+                            os.link(part_path, temp_final_path)
+                        except OSError:
+                            shutil.copyfile(part_path, temp_final_path)
+                        temp_final_path.replace(final_path)
+                    else:
+                        part_path.replace(final_path)
+                    if source_mtime is not None and len(source_mtime) == 8:
+                        mtime_ns = int.from_bytes(source_mtime, "big")
+                        os.utime(final_path, ns=(mtime_ns, mtime_ns))
+                    try:
+                        updated_stat = final_path.stat()
+                        cache_entry = (
+                            updated_stat.st_size,
+                            updated_stat.st_mtime_ns,
+                            expected_sha256,
+                        )
+                    except OSError:
+                        cache_entry = None
             else:
                 hash_mismatch = True
                 state = TransferState.HASH_MISMATCH
@@ -1361,6 +1412,7 @@ class SpaceSyncReceiver:
                 self._close_transfer_mmap(transfer)
             self._transfers.clear()
             self._transfer_ids_by_signature.clear()
+            self._transfer_ids_by_final_path.clear()
             self._completed.clear()
             self._completed_hash_cache.clear()
             self._pending_pre_metadata.clear()
@@ -1420,6 +1472,11 @@ class SpaceSyncReceiver:
                     "highest_chunk_seen": transfer.highest_chunk_seen,
                     "last_chunk_seen": transfer.last_chunk_seen,
                     "source_addr": [transfer.source_addr[0], transfer.source_addr[1]],
+                    "reply_addr": (
+                        [transfer.reply_addr[0], transfer.reply_addr[1]]
+                        if transfer.reply_addr is not None
+                        else None
+                    ),
                     "last_beacon_tx_s": transfer.last_beacon_s,
                     "last_beacon_rx_s": transfer.last_beacon_rx_s,
                     "last_sender_peer_age_ms": transfer.last_sender_peer_age_ms,
@@ -1466,10 +1523,20 @@ class SpaceSyncReceiver:
                 transfer = self._restore_transfer(item)
                 if transfer is None:
                     continue
+                if not self._admit_manifest(transfer.manifest):
+                    continue
+                if not self._admit_new_transfer_locked(transfer.manifest):
+                    continue
+                if transfer.final_path in self._transfer_ids_by_final_path:
+                    continue
                 self._transfers[transfer.manifest.transfer_id] = transfer
                 self._transfer_ids_by_signature[
                     self._manifest_signature(transfer.manifest)
                 ] = transfer.manifest.transfer_id
+                self._transfer_ids_by_final_path[transfer.final_path] = (
+                    transfer.manifest.transfer_id
+                )
+                self._active_allocation_bytes += transfer.manifest.file_size
             self._mark_journal_dirty_locked()
             self._flush_journal_locked(force=True)
 
@@ -1488,6 +1555,15 @@ class SpaceSyncReceiver:
         indexed_transfer_id = self._transfer_ids_by_signature.get(signature)
         if indexed_transfer_id == transfer_id:
             self._transfer_ids_by_signature.pop(signature, None)
+        indexed_final_path_transfer_id = self._transfer_ids_by_final_path.get(
+            transfer.final_path
+        )
+        if indexed_final_path_transfer_id == transfer_id:
+            self._transfer_ids_by_final_path.pop(transfer.final_path, None)
+        self._active_allocation_bytes = max(
+            0,
+            self._active_allocation_bytes - transfer.manifest.file_size,
+        )
         return transfer
 
     def _restore_transfer(self, raw: dict[str, object]) -> _TransferStateData | None:
@@ -1515,6 +1591,10 @@ class SpaceSyncReceiver:
             if not isinstance(source_addr_raw, list) or len(source_addr_raw) != 2:
                 return None
             source_addr = (str(source_addr_raw[0]), int(source_addr_raw[1]))
+            reply_addr: tuple[str, int] | None = None
+            reply_addr_raw = raw.get("reply_addr")
+            if isinstance(reply_addr_raw, list) and len(reply_addr_raw) == 2:
+                reply_addr = (str(reply_addr_raw[0]), int(reply_addr_raw[1]))
             highest_chunk_seen = self._coerce_optional_int(raw.get("highest_chunk_seen", -1), -1)
             last_chunk_seen = self._coerce_optional_int(
                 raw.get("last_chunk_seen", highest_chunk_seen),
@@ -1552,6 +1632,7 @@ class SpaceSyncReceiver:
             final_path=final_path,
             tracker=tracker,
             source_addr=source_addr,
+            reply_addr=reply_addr or self._reply_addr_for(manifest, source_addr),
             last_activity_s=time.monotonic(),
             highest_chunk_seen=max(-1, highest_chunk_seen),
             last_chunk_seen=max(-1, last_chunk_seen),
@@ -1653,7 +1734,7 @@ class SpaceSyncReceiver:
 
     def _sendto_best_effort(
         self,
-        sock: socket.socket,
+        sock: socket.socket | None,
         payload: bytes,
         destination: tuple[str, int],
         *,
@@ -1671,6 +1752,14 @@ class SpaceSyncReceiver:
                 )
                 return False
             return True
+        if sock is None:
+            LOGGER.debug(
+                "send_socket_unavailable reason=%s dest=%s:%d",
+                reason,
+                destination[0],
+                destination[1],
+            )
+            return False
         try:
             sock.sendto(payload, destination)
         except OSError as exc:
