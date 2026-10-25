@@ -123,6 +123,10 @@ def test_open_loop_tail_redundancy_recovers_dropped_last_chunk(tmp_path: Path) -
             config=SenderConfig(
                 chunk_size=256,
                 enable_feedback=False,
+                # See test_receiver_hides_fully_received_no_feedback_transfer_
+                # from_active_journal for why this is needed alongside
+                # enable_feedback=False.
+                auto_feedback_discovery=False,
                 drop_every_nth_data=4,
                 tail_redundancy_chunks=4,
             ),
@@ -998,6 +1002,12 @@ def test_receiver_hides_fully_received_no_feedback_transfer_from_active_journal(
             config=SenderConfig(
                 chunk_size=1024,
                 enable_feedback=False,
+                # The receiver sends beacons regardless of enable_feedback
+                # (ReceiverConfig.beacon_interval_s), so without this the
+                # sender's auto-discovery can see one and switch itself into
+                # feedback mode mid-transfer, then wait forever for a
+                # completion signal a no-feedback receiver never sends.
+                auto_feedback_discovery=False,
             )
         )
         result = sender.send_file(source_path, "127.0.0.1", receiver.bind_port)
